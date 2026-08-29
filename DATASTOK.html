@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Web Toko Sembako V3 - Dark Mode & Scanner Pro</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+
+    <style>
+        body { overflow-x: hidden; }
+        .checkbox-custom { width: 1.25rem; height: 1.25rem; cursor: pointer; }
+    </style>
+</head>
+<body class="bg-gray-900 min-h-screen font-sans text-gray-100 pb-20">
+
+    <nav class="bg-gray-800 border-b border-gray-700 shadow-lg sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto flex justify-between items-center p-4">
+            <h1 class="text-lg md:text-xl font-extrabold tracking-wide text-blue-400">🛒 WARUNG PURTI PRO</h1>
+            <div class="flex gap-2">
+                <button onclick="bukaHalaman('dashboard')" id="btn-dashboard" class="px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm md:text-base hover:bg-blue-500 transition">Dashboard</button>
+                <button onclick="bukaHalaman('kasir')" id="btn-kasir" class="px-3 md:px-4 py-2 bg-gray-700 text-gray-300 rounded-lg font-semibold text-sm md:text-base hover:bg-gray-600 transition opacity-70">Input & Kasir</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto p-4 mt-2">
+
+        <section id="halaman-dashboard" class="block">
+            
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-3">
+                <h2 class="text-2xl font-bold text-gray-100">Ringkasan Toko</h2>
+                
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button onclick="exportPDF()" class="flex-1 md:flex-none bg-red-600 hover:bg-red-500 text-white font-bold px-4 py-2 rounded-lg shadow transition flex items-center justify-center gap-2 text-sm">
+                        📄 Cetak PDF
+                    </button>
+                    <button onclick="exportExcel()" class="flex-1 md:flex-none bg-green-600 hover:bg-green-500 text-white font-bold px-4 py-2 rounded-lg shadow transition flex items-center justify-center gap-2 text-sm">
+                        📊 Unduh Excel
+                    </button>
+                </div>
+            </div>
+
+            <div id="area-cetak-laporan" class="bg-gray-900 text-gray-100">
+                <div id="kop-surat" class="hidden text-center mb-6 border-b-2 border-gray-700 pb-4">
+                    <h2 class="text-2xl font-bold uppercase text-white">Laporan Stok & Penjualan Sembako</h2>
+                    <p id="tanggal-laporan" class="text-gray-400 text-sm"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-gray-800 p-4 rounded-xl shadow border-l-4 border-blue-500">
+                        <p class="text-xs md:text-sm text-gray-400">Total Item Barang</p>
+                        <p class="text-xl md:text-2xl font-bold text-white" id="info-total-item">0</p>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded-xl shadow border-l-4 border-green-500">
+                        <p class="text-xs md:text-sm text-gray-400">Omzet Penjualan</p>
+                        <p class="text-xl md:text-2xl font-bold text-green-400" id="info-omzet">Rp 0</p>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 rounded-xl shadow overflow-hidden border border-gray-700">
+                    <div class="p-4 bg-gray-750 border-b border-gray-700">
+                        <h3 class="font-bold text-gray-200 text-sm md:text-base">Tabel Rincian Stok Real-Time</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-750 text-gray-300 text-xs md:text-sm border-b border-gray-700">
+                                    <th class="p-3 whitespace-nowrap">Kode / Barang</th>
+                                    <th class="p-3 whitespace-nowrap">Harga Jual</th>
+                                    <th class="p-3 text-center">Awal</th>
+                                    <th class="p-3 text-center text-blue-400">Masuk</th>
+                                    <th class="p-3 text-center text-orange-400">Laku</th>
+                                    <th class="p-3 text-center font-bold">Sisa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabel-dashboard" class="text-xs md:text-sm divide-y divide-gray-700">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="halaman-kasir" class="hidden">
+            
+            <div class="bg-gray-800 p-4 rounded-xl shadow-md mb-6 border border-gray-700 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                    <h3 class="font-bold text-base md:text-lg text-white">📷 Scan Barcode via Kamera HP</h3>
+                    <p class="text-xs md:text-sm text-gray-400">Arahkan kamera ke barcode produk untuk cek harga atau tambah item.</p>
+                </div>
+                <button onclick="mulaiScan()" class="w-full md:w-auto bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 px-6 rounded-lg shadow transition text-sm">
+                    Buka Kamera Scanner
+                </button>
+            </div>
+
+            <div id="container-scanner" class="hidden bg-gray-800 p-4 rounded-xl shadow-md mb-6 border border-purple-500">
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-bold text-white text-sm">Pindai Barcode pada Kotak di Bawah:</h4>
+                    <button onclick="tutupScan()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Tutup Kamera</button>
+                </div>
+                <div id="reader" class="w-full overflow-hidden rounded-lg bg-black"></div>
+                <p id="status-kamera" class="text-xs text-center text-gray-400 mt-2">Memuat modul kamera perangkat...</p>
+            </div>
+
+            <div id="hasil-scan-container" class="hidden bg-blue-950 border border-blue-500 p-4 rounded-xl mb-6 shadow-lg">
+                <h4 class="font-bold text-blue-300 text-sm mb-1">Hasil Pemindaian Barcode:</h4>
+                <p id="info-hasil-scan" class="text-white text-sm md:text-base font-semibold"></p>
+            </div>
+
+            <div class="bg-gray-800 p-4 md:p-5 rounded-xl shadow-md mb-6 border-t-4 border-blue-500 border-x border-b border-gray-700">
+                <h2 id="judul-form" class="font-bold text-base md:text-lg mb-4 text-white">➕ Tambah Master Barang Baru</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input type="text" id="kodeBarang" placeholder="Kode / Barcode (Opsional/Auto)" class="border border-gray-600 p-3 rounded-lg w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-900 text-white">
+                    <input type="text" id="namaBarang" placeholder="Nama Barang (Cth: Minyak Goreng 1L)" class="border border-gray-600 p-3 rounded-lg w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-900 text-white">
+                    <input type="number" id="hargaJual" placeholder="Harga Jual (Cth: 16000)" class="border border-gray-600 p-3 rounded-lg w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-900 text-white">
+                </div>
+                <div class="mt-3">
+                    <input type="number" id="stokAwal" placeholder="Jumlah Stok Awal Saat Ini" class="border border-gray-600 p-3 rounded-lg w-full md:w-1/3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-900 text-white">
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button id="btn-simpan-form" onclick="simpanAtauUpdateBarang()" class="flex-1 md:flex-none bg-blue-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-blue-500 transition shadow-md text-sm">
+                        Simpan ke Database
+                    </button>
+                    <button id="btn-batal-edit" onclick="batalEdit()" class="hidden flex-1 md:flex-none bg-gray-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-gray-500 transition shadow-md text-sm">
+                        Batal
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-bold text-lg md:text-xl text-white">Manajemen Stok & Kasir</h2>
+                <button onclick="hapusBarangTerpilih()" class="bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg text-xs md:text-sm font-bold shadow-md transition flex items-center gap-1.5">
+                    🗑️ Hapus Terpilih
+                </button>
+            </div>
+
+            <div id="daftar-kasir" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                </div>
+        </section>
+
+    </main>
+
+    <script>
+        let dataToko = JSON.parse(localStorage.getItem('dataTokoWebPro')) || [];
+        let idEditAktif = null;
+        let html5QrCodeScanner = null;
+
+        // Navigasi Antar Menu
+        function bukaHalaman(halaman) {
+            const halDashboard = document.getElementById('halaman-dashboard');
+            const halKasir = document.getElementById('halaman-kasir');
+            const btnDashboard = document.getElementById('btn-dashboard');
+            const btnKasir = document.getElementById('btn-kasir');
+
+            if(halaman === 'dashboard') {
+                halDashboard.classList.replace('hidden', 'block');
+                halKasir.classList.replace('block', 'hidden');
+                btnDashboard.classList.replace('bg-gray-700', 'bg-blue-600');
+                btnDashboard.classList.remove('opacity-70');
+                btnKasir.classList.replace('bg-blue-600', 'bg-gray-700');
+                btnKasir.classList.add('opacity-70');
+                tutupScan();
+            } else {
+                halKasir.classList.replace('hidden', 'block');
+                halDashboard.classList.replace('block', 'hidden');
+                btnKasir.classList.replace('bg-gray-700', 'bg-blue-600');
+                btnKasir.classList.remove('opacity-70');
+                btnDashboard.classList.replace('bg-blue-600', 'bg-gray-700');
+                btnDashboard.classList.add('opacity-70');
+            }
+        }
+
+        // Tambah / Perbarui Barang
+        function simpanAtauUpdateBarang() {
+            const inputKode = document.getElementById('kodeBarang').value.trim();
+            const kode = inputKode !== '' ? inputKode : ('BARCODE-' + Math.floor(100000 + Math.random() * 900000));
+            const nama = document.getElementById('namaBarang').value.trim();
+            const harga = parseInt(document.getElementById('hargaJual').value);
+            const stok = parseInt(document.getElementById('stokAwal').value);
+
+            if (!nama || isNaN(harga) || isNaN(stok)) {
+                alert('Mohon lengkapi Nama Barang, Harga Jual, dan Stok Awal dengan benar!');
+                return;
+            }
+
+            if (idEditAktif !== null) {
+                const index = dataToko.findIndex(b => b.id === idEditAktif);
+                if (index !== -1) {
+                    dataToko[index].kode = kode;
+                    dataToko[index].nama = nama;
+                    dataToko[index].harga = harga;
+                    dataToko[index].stokAwal = stok;
+                }
+                alert('Data barang berhasil diperbarui!');
+                batalEdit();
+            } else {
+                dataToko.push({
+                    id: Date.now(),
+                    kode: kode,
+                    nama: nama,
+                    harga: harga,
+                    stokAwal: stok,
+                    stokMasuk: 0,
+                    stokKeluar: 0
+                });
+                
+                document.getElementById('kodeBarang').value = '';
+                document.getElementById('namaBarang').value = '';
+                document.getElementById('hargaJual').value = '';
+                document.getElementById('stokAwal').value = '';
+                alert('Barang baru berhasil disimpan!');
+            }
+            simpanDanRender();
+        }
+
+        // Mode Edit Barang
+        function editBarang(id) {
+            const barang = dataToko.find(b => b.id === id);
+            if(!barang) return;
+            document.getElementById('kodeBarang').value = barang.kode || '';
+            document.getElementById('namaBarang').value = barang.nama;
+            document.getElementById('hargaJual').value = barang.harga;
+            document.getElementById('stokAwal').value = barang.stokAwal;
+            
+            idEditAktif = id;
+            document.getElementById('judul-form').innerHTML = '✏️ Perbaiki Data Barang';
+            document.getElementById('btn-simpan-form').innerHTML = 'Update Data';
+            document.getElementById('btn-simpan-form').classList.replace('bg-blue-600', 'bg-yellow-600');
+            document.getElementById('btn-simpan-form').classList.replace('hover:bg-blue-500', 'hover:bg-yellow-500');
+            document.getElementById('btn-batal-edit').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function batalEdit() {
+            idEditAktif = null;
+            document.getElementById('kodeBarang').value = '';
+            document.getElementById('namaBarang').value = '';
+            document.getElementById('hargaJual').value = '';
+            document.getElementById('stokAwal').value = '';
+            
+            document.getElementById('judul-form').innerHTML = '➕ Tambah Master Barang Baru';
+            document.getElementById('btn-simpan-form').innerHTML = 'Simpan ke Database';
+            document.getElementById('btn-simpan-form').classList.replace('bg-yellow-600', 'bg-blue-600');
+            document.getElementById('btn-simpan-form').classList.replace('hover:bg-yellow-500', 'hover:bg-blue-500');
+            document.getElementById('btn-batal-edit').classList.add('hidden');
+        }
+
+        // Hapus Satuan & Pilihan Banyak
+        function hapusBarangTerpilih() {
+            const checkboxes = document.querySelectorAll('.cek-hapus-barang:checked');
+            if (checkboxes.length === 0) return alert('Pilih minimal satu barang pada kotak centang di kartu produk!');
+
+            if(confirm(`Yakin ingin menghapus ${checkboxes.length} barang terpilih?`)) {
+                const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
+                dataToko = dataToko.filter(b => !ids.includes(b.id));
+                simpanDanRender();
+            }
+        }
+
+        function hapusBarang(id) {
+            if(confirm('Yakin ingin menghapus barang ini dari sistem?')) {
+                dataToko = dataToko.filter(b => b.id !== id);
+                simpanDanRender();
+            }
+        }
+
+        // Transaksi Stok Masuk (Kulakan) & Keluar (Terjual/Laku)
+        function transaksi(id, jenis) {
+            const index = dataToko.findIndex(b => b.id === id);
+            if(index === -1) return;
+
+            let sisaStokSaatIni = dataToko[index].stokAwal + dataToko[index].stokMasuk - dataToko[index].stokKeluar;
+
+            if(jenis === 'masuk') {
+                dataToko[index].stokMasuk += 1;
+            } else if (jenis === 'keluar') {
+                if(sisaStokSaatIni <= 0) {
+                    alert('Transaksi gagal! Sisa stok barang sudah habis (0).');
+                    return;
+                }
+                dataToko[index].stokKeluar += 1;
+            }
+            simpanDanRender();
+        }
+
+        // ================= FITUR KAMERA SCANNER HP (OPTIMIZED) =================
+        function mulaiScan() {
+            const containerScanner = document.getElementById('container-scanner');
+            const statusKamera = document.getElementById('status-kamera');
+            containerScanner.classList.remove('hidden');
+            statusKamera.innerText = "Meminta izin kamera perangkat...";
+
+            if (!html5QrCodeScanner) {
+                html5QrCodeScanner = new Html5Qrcode("reader");
+            }
+
+            // Konfigurasi ideal untuk kamera HP (Prioritas Kamera Belakang / Environment)
+            const configKamera = { fps: 15, qrbox: { width: 250, height: 150 } };
+
+            html5QrCodeScanner.start(
+                { facingMode: "environment" }, 
+                configKamera,
+                (decodedText) => {
+                    // Berhasil mendeteksi barcode
+                    prosesHasilScan(decodedText);
+                },
+                (errorMessage) => {
+                    // Abaikan error saat proses pemindaian berjalan kontinu mencari kode
+                }
+            ).then(() => {
+                statusKamera.innerText = "Arahkan kamera ke barcode produk.";
+            }).catch(err => {
+                // Fallback jika facingMode exact gagal di beberapa device, coba buka kamera umum
+                html5QrCodeScanner.start(
+                    { facingMode: "user" }, 
+                    configKamera,
+                    (decodedText) => { prosesHasilScan(decodedText); },
+                    () => {}
+                ).catch(err2 => {
+                    statusKamera.innerText = "Gagal mengaktifkan kamera. Pastikan izin kamera diaktifkan di browser HP Anda.";
+                    alert("Akses Kamera Ditolak / Tidak Didukung: " + err);
+                });
+            });
+        }
+
+        function tutupScan() {
+            if (html5QrCodeScanner) {
+                html5QrCodeScanner.stop().then(() => {
+                    document.getElementById('container-scanner').classList.add('hidden');
+                }).catch(() => {
+                    document.getElementById('container-scanner').classList.add('hidden');
+                });
+            } else {
+                document.getElementById('container-scanner').classList.add('hidden');
+            }
+        }
+
+        function prosesHasilScan(kodePencarian) {
+            tutupScan();
+            const barangDitemukan = dataToko.find(b => b.kode === kodePencarian);
+            const containerHasil = document.getElementById('hasil-scan-container');
+            const infoHasil = document.getElementById('info-hasil-scan');
+
+            containerHasil.classList.remove('hidden');
+
+            if (barangDitemukan) {
+                let sisaStok = barangDitemukan.stokAwal + barangDitemukan.stokMasuk - barangDitemukan.stokKeluar;
+                infoHasil.innerHTML = `✅ Ditemukan: <span class="text-white font-bold">${barangDitemukan.nama}</span> | Harga: <span class="text-green-400 font-bold">${formatRupiah(barangDitemukan.harga)}</span> | Sisa Stok: <span class="text-yellow-400 font-bold">${sisaStok} Pcs</span>`;
+            } else {
+                infoHasil.innerHTML = `❌ Barcode <span class="text-yellow-300 font-mono">${kodePencarian}</span> belum terdaftar. <br><span class="text-xs text-gray-300">Kode telah otomatis dimasukkan ke form di bawah untuk didaftarkan.</span>`;
+                document.getElementById('kodeBarang').value = kodePencarian;
+                document.getElementById('namaBarang').focus();
+            }
+        }
+
+        // Format Mata Uang Rupiah
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+        }
+
+        // Simpan ke LocalStorage & Render Ulang Antarmuka
+        function simpanDanRender() {
+            localStorage.setItem('dataTokoWebPro', JSON.stringify(dataToko));
+            renderDashboard();
+            renderKasir();
+        }
+
+        // Render Halaman Kasir / Manajemen Stok
+        function renderKasir() {
+            const wadah = document.getElementById('daftar-kasir');
+            wadah.innerHTML = '';
+
+            if (dataToko.length === 0) {
+                wadah.innerHTML = '<p class="text-gray-400 col-span-2 text-center py-8 bg-gray-800 rounded-xl border border-gray-700 text-sm">Belum ada barang terdaftar di sistem.</p>';
+                return;
+            }
+
+            dataToko.forEach(barang => {
+                let sisaStok = barang.stokAwal + barang.stokMasuk - barang.stokKeluar;
+                let warnaStok = sisaStok < 5 ? 'text-red-400' : 'text-green-400';
+
+                wadah.innerHTML += `
+                    <div class="bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-700 relative">
+                        <div class="absolute top-4 right-4">
+                            <input type="checkbox" value="${barang.id}" class="cek-hapus-barang checkbox-custom accent-red-500">
+                        </div>
+                        <div class="mb-3 pr-8">
+                            <span class="text-xs font-mono bg-gray-700 text-blue-300 px-2 py-0.5 rounded">${barang.kode || '-'}</span>
+                            <h3 class="font-bold text-white text-base md:text-lg mt-1">${barang.nama}</h3>
+                            <p class="text-blue-400 font-semibold text-sm md:text-base">${formatRupiah(barang.harga)}</p>
+                        </div>
+                        <div class="bg-gray-900 p-2.5 rounded-lg mb-3 flex justify-between items-center border border-gray-700">
+                            <span class="text-xs md:text-sm font-semibold text-gray-300">Sisa Stok Real-Time:</span>
+                            <span class="text-lg md:text-xl font-bold ${warnaStok}">${sisaStok} Pcs</span>
+                        </div>
+                        <div class="flex gap-2 mb-2">
+                            <button onclick="transaksi(${barang.id}, 'masuk')" class="flex-1 bg-blue-900/60 text-blue-300 border border-blue-700 py-2 rounded-lg font-bold text-xs hover:bg-blue-900 transition">+ Kulakan</button>
+                            <button onclick="transaksi(${barang.id}, 'keluar')" class="flex-1 bg-orange-900/60 text-orange-300 border border-orange-700 py-2 rounded-lg font-bold text-xs hover:bg-orange-900 transition">- Laku (Terjual)</button>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="editBarang(${barang.id})" class="flex-1 border border-yellow-600 text-yellow-400 py-1.5 rounded-lg text-xs font-bold hover:bg-yellow-900/30 transition">✏️ Edit</button>
+                            <button onclick="hapusBarang(${barang.id})" class="flex-1 border border-red-600 text-red-400 py-1.5 rounded-lg text-xs font-bold hover:bg-red-900/30 transition">🗑️ Hapus</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Render Halaman Dashboard Ringkasan
+        function renderDashboard() {
+            const tabel = document.getElementById('tabel-dashboard');
+            tabel.innerHTML = '';
+            
+            let totalItem = dataToko.length;
+            let totalOmzet = 0;
+
+            if (dataToko.length === 0) {
+                tabel.innerHTML = '<tr><td colspan="6" class="text-center p-6 text-gray-400 text-sm">Belum ada data laporan transaksi stok.</td></tr>';
+            } else {
+                dataToko.forEach(barang => {
+                    let sisaStok = barang.stokAwal + barang.stokMasuk - barang.stokKeluar;
+                    totalOmzet += (barang.stokKeluar * barang.harga);
+
+                    tabel.innerHTML += `
+                        <tr class="border-b border-gray-700 ${sisaStok < 5 ? 'bg-red-950/30' : 'bg-gray-800'}">
+                            <td class="p-3">
+                                <div class="font-bold text-white text-xs md:text-sm">${barang.nama}</div>
+                                <div class="text-[11px] font-mono text-gray-400">${barang.kode || '-'}</div>
+                            </td>
+                            <td class="p-3 text-blue-300 text-xs md:text-sm">${formatRupiah(barang.harga)}</td>
+                            <td class="p-3 text-center text-xs md:text-sm">${barang.stokAwal}</td>
+                            <td class="p-3 text-center text-blue-400 text-xs md:text-sm">+${barang.stokMasuk}</td>
+                            <td class="p-3 text-center text-orange-400 text-xs md:text-sm">-${barang.stokKeluar}</td>
+                            <td class="p-3 text-center font-bold text-xs md:text-sm ${sisaStok < 5 ? 'text-red-400' : 'text-green-400'}">${sisaStok}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            document.getElementById('info-total-item').innerText = totalItem;
+            document.getElementById('info-omzet').innerText = formatRupiah(totalOmzet);
+        }
+
+        // Ekspor Laporan ke PDF
+        function exportPDF() {
+            document.getElementById('kop-surat').classList.remove('hidden');
+            const tgl = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('tanggal-laporan').innerText = 'Tanggal Cetak Laporan: ' + tgl;
+
+            const elemenArea = document.getElementById('area-cetak-laporan');
+            const opsiPDF = {
+                margin:       0.4,
+                filename:     'Laporan_Warung_Sembako_' + Date.now() + '.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opsiPDF).from(elemenArea).save().then(() => {
+                document.getElementById('kop-surat').classList.add('hidden');
+            });
+        }
+
+        // Ekspor Laporan ke Excel (.xlsx)
+        function exportExcel() {
+            if (dataToko.length === 0) {
+                alert('Data barang masih kosong, tidak ada laporan yang dapat diexport.');
+                return;
+            }
+
+            const dataSiapExcel = dataToko.map(barang => {
+                let sisaStok = barang.stokAwal + barang.stokMasuk - barang.stokKeluar;
+                let omzet = barang.stokKeluar * barang.harga;
+
+                return {
+                    "Kode Barcode": barang.kode || "-",
+                    "Nama Barang": barang.nama,
+                    "Harga Jual (Rp)": barang.harga,
+                    "Stok Awal": barang.stokAwal,
+                    "Total Masuk (Kulakan)": barang.stokMasuk,
+                    "Total Terjual (Laku)": barang.stokKeluar,
+                    "SISA STOK AKHIR": sisaStok,
+                    "Omzet Pendapatan (Rp)": omzet
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(dataSiapExcel);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Stok Warung");
+            XLSX.writeFile(workbook, 'Data_Warung_Sembako_' + Date.now() + '.xlsx');
+        }
+
+        // Jalankan render awal saat halaman dimuat
+        simpanDanRender();
+    </script>
+</body>
+</html>
